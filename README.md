@@ -1,78 +1,30 @@
-# Apptainer in Docker
+# Apptainer in Podman
 
-[![Docker images available at kaczmarj/apptainer](https://img.shields.io/badge/DockerHub-kaczmarj/apptainer-blue)](https://hub.docker.com/r/kaczmarj/apptainer)
-[![Docker pulls](https://img.shields.io/docker/pulls/kaczmarj/apptainer)](https://hub.docker.com/r/kaczmarj/apptainer)
-[![Docker pulls](https://img.shields.io/docker/pulls/kaczmarj/singularity)](https://hub.docker.com/r/kaczmarj/singularity)
+Forked from [https://github.com/kaczmarj/apptainer-in-docker.git](https://github.com/kaczmarj/apptainer-in-docker.git).
 
-The Dockerfile in this repository builds Apptainer. The resulting Docker image can be used on any system with Docker to build Apptainer images. This project is targeted towards high-performance computing users who have Apptainer/Singularity installed on their clusters but do not have Apptainer/Singularity on their local computers to build images.
+Changes with respect to the origin:
+ - container build depends on apptainer release, not branch of main repository
+ - instructions and hints of how to use with podman
+ - script to use as alias of apptainer-build
 
+## Aim
 
-**Note**: This project previously built Singularity.
-See the [Linux Foundation post](https://www.linuxfoundation.org/press/press-release/new-linux-foundation-project-accelerates-collaboration-on-container-systems-between-enterprise-and-high-performance-computing-environments) regarding the name change to Apptainer.
+Original apptainer-in-docker used privileged mode or mounted docker.sock inside container. Changes were made to avoid using such methods.
 
-## Convert local Docker image to Apptainer format
+## Podman
 
-In the following example, we convert an existing Docker image to Apptainer format.
+Note: Running apptainer in a container without privileged mode can be limiting, because some functionalities are disabled.
 
+Example of building a container:
 ```bash
-$ docker pull alpine:3.18.2
-$ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd):/work \
-    kaczmarj/apptainer build alpine_3.18.2.sif docker-daemon://alpine:3.18.2
+touch output.sif
+podman run --rm --mount type=bind,src=$(pwd),dst=/work,ro=true \
+    --mount type=bind,src=$(pwd)/output.sif,dst=/work/output.sif,ro=false \
+    apptainer build --force output.sif test_alpine.def
 ```
 
-This output `.sif` file will be owned by root, so you can change ownership:
+This will create output.sif file in current working directory, build apptainer image inside podman container and overwrite output.sif with built apptainer image.
 
-```bash
-sudo chown USER:GROUP alpine_3.18.2.sif
-```
-
-## Build Apptainer image in Docker
-
-With the following command, we build a small Apptainer image defined in [`test_alpine.def`](test_alpine.def). This Apptainer image will be saved in the current directory `myimage.sif`.
-
-```bash
-$ docker run --rm --privileged -v $(pwd):/work kaczmarj/apptainer \
-  build myimage.sif test_alpine.def
-```
-
-## Run Apptainer image in Docker
-
-One can run a Apptainer image within this Docker image. This is not recommended, but it is possible.
-
-```bash
-$ docker run --rm --privileged kaczmarj/apptainer \
-  run shub://GodloveD/lolcow
-```
-
-Here is the output:
-
-```
-INFO:    Downloading shub image
-87.6MiB / 87.6MiB [======================================================================================================================================================] 100 % 1.4 MiB/s 0s
- _________________________________________
-/ He that is giddy thinks the world turns \
-| round.                                  |
-|                                         |
-| -- William Shakespeare, "The Taming of  |
-\ the Shrew"                              /
- -----------------------------------------
-        \   ^__^
-         \  (oo)\_______
-            (__)\       )\/\
-                ||----w |
-                ||     ||
-```
-
-## Build image
-
-Apptainer version 1.2.0:
-
-```bash
-$ docker build --build-arg APPTAINER_COMMITISH=v1.2.0 -t apptainer:1.2.0 .
-```
-
-Bleeding-edge (main branch):
-
-```bash
-$ docker build --build-arg APPTAINER_COMMITISH=main -t apptainer:latest .
-```
+#### Problems with setuid
+Personally I run into problems with setuid, while trying to build ubuntu apptainer using apt. There is a hack for that.
+Removing `_apt` user will stop apt from using lock functionality and eliminate the need of setuid. It can be done by prepending `sed '/^_apt/d' -i /etc/passwd` before apt usage in def file.

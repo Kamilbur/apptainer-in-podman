@@ -1,4 +1,4 @@
-FROM golang:1.20.6-alpine3.18 as builder
+FROM docker.io/golang:1.23.1-alpine3.20 as builder
 
 RUN apk add --no-cache \
         # Required for apptainer to find min go version
@@ -6,7 +6,7 @@ RUN apk add --no-cache \
         cryptsetup \
         gawk \
         gcc \
-        git \
+        curl \
         libc-dev \
         linux-headers \
         libressl-dev \
@@ -15,18 +15,16 @@ RUN apk add --no-cache \
         make \
         util-linux-dev
 
-ARG APPTAINER_COMMITISH="main"
+ARG APPTAINER_RELEASE="1.3.4"
 ARG MCONFIG_OPTIONS="--with-suid"
 WORKDIR $GOPATH/src/github.com/apptainer
-RUN git clone https://github.com/apptainer/apptainer.git \
-    && cd apptainer \
-    && git checkout "$APPTAINER_COMMITISH" \
+RUN (curl -fsSL https://github.com/apptainer/apptainer/releases/download/v${APPTAINER_RELEASE}/apptainer-${APPTAINER_RELEASE}.tar.gz | tar -xzf - -C . --strip-components 1) \
     && ./mconfig $MCONFIG_OPTIONS -p /usr/local/apptainer \
     && cd builddir \
-    && make \
+    && make -j $(nproc) \
     && make install
 
-FROM alpine:3.18.2
+FROM docker.io/alpine:3.20.3
 COPY --from=builder /usr/local/apptainer /usr/local/apptainer
 ENV PATH="/usr/local/apptainer/bin:$PATH" \
     APPTAINER_TMPDIR="/tmp-apptainer"
