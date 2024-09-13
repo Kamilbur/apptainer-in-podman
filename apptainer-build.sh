@@ -84,13 +84,14 @@ parse() {
 }
 
 apptainer-build() {
-    if [[ -n "$1" ]]; then
-        echo $1
+    args=$2
+    if [[ -n "$1" ]] && [[ ! -e $1 ]]; then
         touch $1
+        args="--force $2"
     fi
     podman run --rm --mount type=bind,src=$(pwd),dst=/work,ro=true \
         --mount type=bind,src=$(pwd)/$1,dst=/work/$1,ro=false \
-        burooo/apptainer build $2
+        burooo/apptainer build $args
 }
 
 apptainer-build-help() {
